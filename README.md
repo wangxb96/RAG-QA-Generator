@@ -1,5 +1,5 @@
 # RAG-QA-Generator
-[中文版本](README.md)
+[中文版本](README-CN.md)
 ## Project Overview
 RAG-QA-Generator is an automated knowledge base construction and management tool designed for Retrieval-Augmented Generation (RAG) systems. It processes document data, leverages large language models to generate high-quality question-answer pairs (QA pairs), and stores this data in a database, enabling automated construction and management of RAG system knowledge bases.
 
