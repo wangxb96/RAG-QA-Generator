@@ -2,11 +2,9 @@ import requests
 import json
 from tqdm import tqdm
 import math
-import time
 
-base_url = 'http://rag.bnuaifn.cn:9080/v1/'
-api_key = 'tkEly3i7kGCSpUaHbM8JIavlptOl4Aed'   
-
+base_url = 'http://your-api-url/v1/'
+api_key = 'your-api-key'
 headers = {"Authorization": f"Bearer {api_key}"}
 
 def list_collections():
