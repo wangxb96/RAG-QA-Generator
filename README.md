@@ -21,7 +21,7 @@ RAG-QA-Generator is an automated knowledge base construction and management tool
 ### Installation
 - Clone the repository:
 ```
-git clone https://github.com/yourusername/RAG-QA-Generator.git
+git clone https://github.com/wangxb96/RAG-QA-Generator.git
 cd RAG-QA-Generator
 ```
 - Install dependencies:
