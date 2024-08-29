@@ -19,7 +19,7 @@ RAG-QA-Generator 是一个用于检索增强生成（RAG）系统的自动化知
 ### 安装步骤
 - 克隆此仓库：
 ```
-git clone https://github.com/yourusername/RAG-QA-Generator.git
+git clone https://github.com/wangxb96/RAG-QA-Generator.git
 cd RAG-QA-Generator
 ```
 - 安装依赖项：
