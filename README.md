@@ -43,7 +43,7 @@ client = OpenAI(
 ### Usage
 - Start the application:
 ```
-streamlit run app.py
+streamlit run AutoQAGPro.py
 ```
 - Access http://localhost:8501
 - Use the interface to upload files, generate QA pairs, and manage the knowledge base.
