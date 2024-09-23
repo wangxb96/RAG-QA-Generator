@@ -15,7 +15,7 @@ RAG-QA-Generator is an automated knowledge base construction and management tool
 - Python 3.7+
 - Streamlit
 - OpenAI API (qwen1.5-72b model)
-- unstructured library
+- [unstructured library](https://github.com/Unstructured-IO/unstructured): should use [pip install "unstructured[all-docs]"] to install all fuctions
 - RESTful API
 
 ### Installation
