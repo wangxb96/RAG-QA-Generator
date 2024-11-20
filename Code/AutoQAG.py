@@ -1,155 +1,55 @@
-# 一、背景介绍
-检索增强生成（RAG）系统已成为人工智能领域的一个重要发展方向，它结合了大规模语言模型的生成能力和外部知识库的精确信息，以提供更准确、更可靠的回答。然而，构建和维护RAG系统的知识库一直是一个耗时且复杂的过程，特别是在处理大量非结构化文档时。最近，我们正在为一个检索增强生成（RAG）系统开发一个自动化的问答（QA）生成工具。这个项目旨在缓解上述挑战，通过自动化流程将各种格式的文档转化为结构化的问答对，并将它们无缝集成到RAG系统的知识库中。
+import streamlit as st
+import requests
+import tempfile
+import os
+import json
+import math
+from openai import OpenAI
+from langchain.docstore.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import (
+    CSVLoader,
+    EverNoteLoader,
+    PyMuPDFLoader,
+    TextLoader,
+    UnstructuredEmailLoader,
+    UnstructuredEPubLoader,
+    UnstructuredHTMLLoader,
+    UnstructuredMarkdownLoader,
+    UnstructuredODTLoader,
+    UnstructuredPowerPointLoader,
+    UnstructuredWordDocumentLoader,
+)
+from typing import List
 
-# 二、提出动机
-本项目源于实际RAG系统开发中遇到的挑战，其中大致的动机有以下几点：
-- **提高效率**：传统方法要么效果不佳，要么耗时过多，我们需要一种能够快速处理大量文档的方法。
-- **提升质量**：利用大模型的智能性，我们希望生成的问答对能够更加贴合文本内容，提高知识库的质量。
-- **减少人工干预**：通过自动化流程，我们旨在最小化人工参与，从而降低人为错误和主观偏差。
-- **灵活适应**：我们需要一个系统能够处理各种格式的文档，并适应不同领域的知识需求。
-- **用户友好**：即使是非技术人员也应该能够轻松使用这个系统，参与到知识库的构建和管理中。
-
-# 三、技术方案
-特别的，我们整体的技术方案可以归结为下面的几个部分：
-- **文档处理**：使用langchain_community的document_loaders库来处理各种格式的文档（txt、pdf、docx），并基于此将其分割成适当大小的文本块。
-- **AI驱动的QA生成**：利用OpenAI的API（在本案例中使用qwen2.5-72b模型）自动生成高质量的问答对。通过精心设计的prompt，确保生成的问答对紧密围绕文本内容。
-- **知识库管理**：实现了一个灵活的集合管理系统，允许创建新的集合或选择现有集合来存储生成的QA对。使用RESTful API与后端数据库进行交互，实现数据的存储和检索。
-- **用户界面**：基于Streamlit构建了一个直观、用户友好的Web界面。该界面提供了文件上传、QA对生成预览、知识库管理等功能，使整个过程变得简单明了。
-- **进度跟踪和错误处理**：实现了详细的进度显示和错误处理机制，确保用户能够实时了解处理进展，并在出现问题时得到及时反馈。
-- **缓存优化**：使用Streamlit的@st.cache_data装饰器来优化性能，特别是在QA对生成过程中。
-- **安全性考虑**：使用临时文件处理上传的文档，处理后立即删除，以确保数据安全。
-
-# 四、安装与使用
-## 4.1 先决条件
-- streamlit==1.22.0
-- requests==2.31.0
-- openai==0.28.0
-- langchain==0.10.0
-- PyMuPDF==1.22.5
-- pandas==2.1.1
-- langchain_community==0.1.0
-
-## 4.2 安装步骤
-- 克隆此仓库：
-```
-git clone https://github.com/wangxb96/RAG-QA-Generator.git
-cd RAG-QA-Generator
-```
-- 安装依赖项：
-```
-pip install -r requirements.txt
-``` 
-- 配置API密钥和基础URL：
-```
-base_url = 'http://your-api-url/v1/'
-api_key = 'your-api-key'
+# 配置（请在使用时替换为实际的URL和API密钥）
+base_url = 'YOUR_BASE_URL_HERE'
+api_key = 'YOUR_API_KEY_HERE'
 headers = {"Authorization": f"Bearer {api_key}"}
 
+# OpenAI客户端配置（请在使用时替换为实际的API密钥和URL）
 client = OpenAI(
-    api_key="your-openai-api-key",
-    base_url="http://your-openai-api-url/v1",
+    api_key="YOUR_OPENAI_API_KEY_HERE",
+    base_url="YOUR_OPENAI_BASE_URL_HERE",
 )
-```
 
-## 4.3 运行应用
-- 启动Streamlit应用：
-```
-streamlit run AutoQAG.py
-```
-- 打开浏览器并访问 http://localhost:8501。
- 
-## 4.4 页面概览
-应用界面分为两个主要部分：
-- **左侧边栏**：用于选择操作（上传文件或管理知识库）
-- **主界面**：显示当前操作的详细内容和交互元素
+# Document loaders mapping
+LOADER_MAPPING = {
+    ".csv": (CSVLoader, {}),
+    ".doc": (UnstructuredWordDocumentLoader, {}),
+    ".docx": (UnstructuredWordDocumentLoader, {}),
+    ".enex": (EverNoteLoader, {}),
+    ".eml": (UnstructuredEmailLoader, {}),
+    ".epub": (UnstructuredEPubLoader, {}),
+    ".html": (UnstructuredHTMLLoader, {}),
+    ".md": (UnstructuredMarkdownLoader, {}),
+    ".odt": (UnstructuredODTLoader, {}),
+    ".pdf": (PyMuPDFLoader, {}),
+    ".ppt": (UnstructuredPowerPointLoader, {}),
+    ".pptx": (UnstructuredPowerPointLoader, {}),
+    ".txt": (TextLoader, {"encoding": "utf8"}),
+}
 
-![](Figure/RAG管理主页面.png)
-_RAG管理主页面_
-
-## 4.5 上传文件
-- 在左侧边栏选择“上传文件”操作。
-- 在主界面中，使用文件上传器上传非结构化文件（支持txt、pdf、docx格式）。
-- 文件上传成功后，点击“处理文件并生成QA对”按钮。
--  系统将处理文件并生成QA对，显示进度条和结果摘要。
-- 生成完成后，可以预览前3个QA对。
-
-![](Figure/文件上传与QA对生成.png)
-_文件上传与QA对生成_
-
-![](Figure/支持多个文件上传.png)
-_更新版本支持多个文件上传_
-
-![](Figure/生成的QA对预览.png)
-_预览生成的前3个QA对_
-
-## 4.6 管理知识库
-- 在左侧边栏选择“管理知识库”操作。
-- 选择“*插入现有Collection*”或“*创建新Collection*”。
-   - 插入现有Collection：
-     - 从下拉列表中选择一个现有的Collection。
-   - 创建新Collection：
-     - 输入新Collection的名称。
-     - 设置Collection的容量（1-1000之间）。
-     - 点击“创建新Collection”按钮。
-
-![](Figure/插入现有知识库.png)
-_插入现有知识库_
-
-![](Figure/插入新创建的知识库.png)
-_插入新创建的知识库_
-
-## 4.7 插入QA对到Collection
-- 确保已经上传文件并生成了QA对。
-- 在知识库管理界面，选择或创建一个Collection。
-- 点击“插入QA对到选定的Collection”按钮。
-- 系统将显示插入进度和结果摘要。
-
-![](Figure/没有生成QA时无法插入.png)
-_没有生成QA时无法插入_
-
-![](Figure/插入知识库成功.png)
-_插入知识库成功_
-
-## 4.8 下载Collection或上传Collection
-- 在知识库管理界面，选择一个Collection。
-- 点击“下载选定的Collection的内容”按钮。
-- 系统将显示获取的chunk数目。
-- 点击“下载集合内容为JSON文件"下载对应Collection
-
-![](Figure/下载集合内容为JSON文件.png)
-_下载Collection_
-
-![](Figure/上传JSON文件到Collection.png)
-_上传JSON文件到Collection_
-
-# 五、技术实现
-## 5.1 配置和初始化
-首先，我们设置了必要的配置和初始化：
-```python
-base_url = 'your_knowledgebase_base_url'
-api_key = 'your_knowledgebase_api_key'
-headers = {"Authorization": f"Bearer {api_key}"}
-
-client = OpenAI(
-    api_key="your_llm_api_key",
-    base_url="your_llm_base_url",
-)
-```
-这部分设置了API的基础URL和认证信息，以及OpenAI客户端的配置。
-## 5.2 核心功能函数
-### 5.2.1 文本处理与问答对生成
-- **get_completion**: 调用模型生成响应。
-- **generate_qa_pairs_with_progress**: 生成问答对并显示进度。
-
-#### 5.2.1.1 get_completion(prompt, model="qwen25-72b")
-**功能**: 获取模型的响应。
-
-**参数**:
-- `prompt`: 要发送给模型的文本提示。
-- `model`: 使用的模型名称，默认为"qwen25-72b"。
-
-**返回**: 返回模型生成的响应内容。如果调用API时发生错误，则返回None。
-```python
 def get_completion(prompt, model="qwen25-72b"):
     """获取模型的响应"""
     try:
@@ -162,16 +62,8 @@ def get_completion(prompt, model="qwen25-72b"):
     except Exception as e:
         st.error(f"调用API时发生错误: {e}")
         return None
-```
 
-#### 5.2.1.2 generate_qa_pairs_with_progress(text_chunks)
-**功能**: 这个函数基于文本块生成QA对（这里可以设计更好的QA生成策略，通过调整prompt实现更好的生成）。
 
-**参数**:
-
-- `text_chunks`: 文本块的列表，用于生成问答对。
-**返回**: 返回生成的问答对列表。
-```python
 def generate_qa_pairs_with_progress(text_chunks):
     """生成问答对并显示进度"""
     qa_pairs = []
@@ -228,26 +120,9 @@ def generate_qa_pairs_with_progress(text_chunks):
         progress_bar.progress(progress)
     
     return qa_pairs
-```
 
-### 5.2.2 API请求处理
-- **api_request**: 处理通用的API请求。
-- **create_collection**: 创建新集合。
-- **create_chunk**: 创建数据块。
-- **list_chunks**: 列出集合中的数据块。
-- **get_chunk_details**: 获取特定数据块的详细信息。
-- **fetch_all_chunks_from_collection**: 从集合中获取所有数据块。
-
-#### 5.2.2.1 api_request(method, url, **kwargs)
-**功能**: 处理通用的API请求。
-
-**参数**:
-- `method`: HTTP请求方法（如GET、POST等）。
-- `url`: 请求的URL。
-- `kwargs`: 其他请求参数（如headers、json等）。
-**返回**: 返回API响应中的“data”部分。如果请求失败，则显示错误信息并返回None。
-```python
 def api_request(method, url, **kwargs):
+    """通用API请求处理函数"""
     try:
         response = requests.request(method, url, headers=headers, **kwargs)
         response.raise_for_status()
@@ -255,40 +130,23 @@ def api_request(method, url, **kwargs):
     except requests.RequestException as e:
         st.error(f"API请求失败: {e}")
         return None
-```
 
-#### 5.2.2.2 create_collection(name, embedding_model_id, capacity)
-**功能**: 创建新集合。
-
-**参数**:
-- `name`: 集合的名称。
-- `embedding_model_id`: 嵌入模型的ID。
-- `capacity`: 集合的容量。
-**返回**: 返回创建的集合的响应数据。
-```python
 def create_collection(name, embedding_model_id, capacity):
+    """创建新集合"""
     data = {
         "name": name,
         "embedding_model_id": embedding_model_id,
         "capacity": capacity
     }
     return api_request("POST", f"{base_url}collections", json=data)
-```
 
-#### 5.2.2.3 create_chunk(collection_id, content)
-**功能**: 创建数据块。
-
-**参数**:
-- `collection_id`: 集合的ID。
-- `content`: 数据块的内容。
-**返回**: 返回创建的数据块的响应数据。如果请求失败，则显示错误信息并返回None。
-```python
 def create_chunk(collection_id, content):
+    """创建chunk"""
     data = {
         "collection_id": collection_id,
         "content": content
     }
-    endpoint = f"{base_url}collections/{collection_id}/chunks"
+    endpoint = f"{base_url}collections/{collection_id}/chunks"  # 确保使用正确的端点
     try:
         response = requests.post(endpoint, headers=headers, json=data)
         response.raise_for_status()
@@ -296,106 +154,18 @@ def create_chunk(collection_id, content):
     except requests.RequestException as e:
         st.error(f"创建chunk失败: {e}")
         return None
-```
 
-
-#### 5.2.2.4 list_chunks(collection_id, limit=20, after=None)
-**功能**: 列出指定集合中的数据块。
-
-**参数**:
-- `collection_id`: 集合的ID。
-- `limit`: 返回的数据块数量限制，默认为20。
-- `after`: 用于分页的参数，指定从哪个数据块开始。
-**返回**: 返回数据块的列表。如果请求失败，则显示错误信息并返回空列表。
-```python
-def list_chunks(collection_id, limit=20, after=None):
-    url = f"{base_url}collections/{collection_id}/chunks"   
-    params = {
-        "limit": limit,
-        "order": "desc"
-    }
-    if after:
-        params["after"] = after
-
-    response = api_request("GET", url, params=params)
-    if response is not None:
-        return response
-    else:
-        st.error("列出 chunks 失败。")
-        return []
-```
-
-#### 5.2.2.5 get_chunk_details(chunk_id, collection_id)
-**功能**: 获取特定数据块的详细信息。
-
-**参数**:
-- `chunk_id`: 数据块的ID。
-- `collection_id`: 集合的ID。
-**返回**: 返回数据块的详细信息。如果请求失败，则显示错误信息并返回None。
-```python
-def get_chunk_details(chunk_id, collection_id):
-    url = f"{base_url}collections/{collection_id}/chunks/{chunk_id}" 
-    response = api_request("GET", url)
-    if response is not None:
-        return response
-    else:
-        st.error("获取 chunk 详细信息失败。")
-        return None
-```
-
-#### 5.2.2.6 fetch_all_chunks_from_collection(collection_id)
-**功能**: 从指定集合中获取所有数据块。
-
-**参数**:
-- `collection_id`: 集合的ID。 
-**返回**: 返回所有数据块的详细信息列表。
-```python
-def fetch_all_chunks_from_collection(collection_id):
-    all_chunks = []
-    after = None
-
-    while True:
-        chunk_list = list_chunks(collection_id, after=after)
-        if not chunk_list:
-            break
-        for chunk in chunk_list:
-            chunk_id = chunk['chunk_id']
-            chunk_details = get_chunk_details(chunk_id, collection_id)
-            if chunk_details:
-                all_chunks.append(chunk_details)
-        if len(chunk_list) < 20:
-            break
-        after = chunk_list[-1]['chunk_id']
-    return all_chunks
-```
-
-### 5.2.3 文件处理
-- **load_single_document**: 加载单个文档。
-- **process_file**: 处理上传的文件并生成文本块。
-- **process_files**: 处理多个上传的文件并生成文本块。
-
-#### 5.2.3.1 load_single_document(file_path: str) -> List[Document]
-**功能**: 加载单个文档。
-**参数**:
-- `file_path`: 文档的文件路径。 
-**返回**: 返回加载的文档列表。如果文件扩展名不受支持，则抛出ValueError。
-```python
 def load_single_document(file_path: str) -> List[Document]:
+    """加载单个文档"""
     ext = "." + file_path.rsplit(".", 1)[-1]
     if ext in LOADER_MAPPING:
         loader_class, loader_args = LOADER_MAPPING[ext]
         loader = loader_class(file_path, **loader_args)
         return loader.load()
     raise ValueError(f"Unsupported file extension '{ext}'")
-```
 
-#### 5.2.3.2 process_file(uploaded_file)
-**功能**: 处理上传的文件并生成文本块。
-**参数**:
-- `uploaded_file`: 上传的文件对象。
-**返回**: 返回生成的文本块列表。如果文件处理失败，则返回空列表。
-```python
 def process_file(uploaded_file):
+    """处理上传的文件并生成文本块"""
     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
         tmp_file.write(uploaded_file.getvalue())
         tmp_file_path = tmp_file.name
@@ -413,15 +183,9 @@ def process_file(uploaded_file):
         return []
     finally:
         os.unlink(tmp_file_path)
-```
 
-#### 5.2.3.4 process_files(uploaded_files)
-**功能**: 处理上传的多个文件并生成文本块。
-**参数**:
-- `uploaded_files`: 上传的文件对象列表。
-**返回**: 返回所有生成的文本块列表。
-```python
 def process_files(uploaded_files):
+    """处理上传的多个文件并生成文本块"""
     all_text_chunks = []
     for uploaded_file in uploaded_files:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
@@ -442,18 +206,9 @@ def process_files(uploaded_files):
             os.unlink(tmp_file_path)
     
     return all_text_chunks
-```
 
-### 5.2.4 问答对数据库管理
-- **insert_qa_pairs_to_database**: 将问答对插入到数据库。
-#### 5.2.4.1 insert_qa_pairs_to_database(collection_id)
-**功能**: 将问答对插入到数据库。
-
-**参数**:
-- `collection_id`: 要插入问答对的集合ID。
-**返回**: 返回成功插入的问答对数量和失败的数量。
-```python
 def insert_qa_pairs_to_database(collection_id):
+    """将问答对插入到数据库"""
     progress_bar = st.progress(0)
     status_text = st.empty()
     success_count = 0
@@ -462,8 +217,9 @@ def insert_qa_pairs_to_database(collection_id):
         try:
             if "question" in qa_pair and "answer" in qa_pair and "chunk" in qa_pair:
                 content = f"问题：{qa_pair['question']}\n答案：{qa_pair['answer']}\n原文：{qa_pair['chunk']}"
+                # 如果content的字数超过4000，截取前4000字
                 if len(content) > 4000:
-                    content = content[:4000]
+                    content = content[:4000]  # 只保留前4000字
                 if create_chunk(collection_id=collection_id, content=content):
                     success_count += 1
                 else:
@@ -481,22 +237,62 @@ def insert_qa_pairs_to_database(collection_id):
         status_text.text(f"进度: {progress:.2%} | 成功: {success_count} | 失败: {fail_count}")
 
     return success_count, fail_count
-```
 
+# Function to list chunks from a collection
+def list_chunks(collection_id, limit=20, after=None):
+    """List chunks from the specified collection."""
+    url = f"{base_url}collections/{collection_id}/chunks"   
+    params = {
+        "limit": limit,
+        "order": "desc"
+    }
+    if after:
+        params["after"] = after
 
-### 5.2.5 数据下载与上传
-- **download_chunks_as_json**: 将数据块下载为JSON文件。
-- **upload_json_chunks**: 从JSON文件上传数据块到指定集合。
+    response = api_request("GET", url, params=params)
+    if response is not None:
+        return response  # Assuming the response is a list of chunks
+    else:
+        st.error("列出 chunks 失败。")
+        return []
 
-#### 5.2.5.1 download_chunks_as_json(chunks, collection_name)
-**功能**: 将数据块下载为JSON文件，并进行清晰的格式化。
+# Function to get chunk details from a collection
+def get_chunk_details(chunk_id, collection_id):
+    """Get details of a specific chunk."""
+    url = f"{base_url}collections/{collection_id}/chunks/{chunk_id}" 
+    response = api_request("GET", url)
+    if response is not None:
+        return response  # Assuming the response contains chunk details
+    else:
+        st.error("获取 chunk 详细信息失败。")
+        return None
 
-**参数**:
-- `chunks`: 数据块的列表。
-- `collection_name`: 集合的名称，用于生成下载文件的名称。
-**返回**: 无返回值，直接提供下载按钮。
-```python
+# Function to fetch chunks from a collection
+def fetch_all_chunks_from_collection(collection_id):
+    """Fetch all chunks from the specified collection."""
+    all_chunks = []
+    after = None
+
+    while True:
+        chunk_list = list_chunks(collection_id, after=after)
+        if not chunk_list:
+            break
+        # Get details for each chunk
+        for chunk in chunk_list:
+            chunk_id = chunk['chunk_id']
+            chunk_details = get_chunk_details(chunk_id, collection_id)
+            if chunk_details:
+                all_chunks.append(chunk_details)
+        # Check if we need to continue fetching
+        if len(chunk_list) < 20:  # Assuming 20 is the limit
+            break
+        # Set the after parameter for the next request
+        after = chunk_list[-1]['chunk_id']
+    return all_chunks
+
+# Function to download chunks as JSON
 def download_chunks_as_json(chunks, collection_name):
+    """Download chunks as a JSON file with clear formatting."""
     if chunks:
         json_data = {"chunks": []}
         for chunk in chunks:
@@ -511,25 +307,20 @@ def download_chunks_as_json(chunks, collection_name):
                 "created_timestamp": chunk.get("created_timestamp"),
             })
         
+        # Pretty print the JSON data for better readability
         json_str = json.dumps(json_data, ensure_ascii=False, indent=4)
         
+        # Create a download button with the collection name
         st.download_button(
             label="下载集合内容为 JSON 文件",
             data=json_str,
             file_name=f"{collection_name}.json",
             mime="application/json"
         )
-```
 
-#### 5.2.5.2 upload_json_chunks(uploaded_json_file, collection_id)
-**功能**: 从JSON文件上传数据块到指定集合。
-
-**参数**:
-- `uploaded_json_file`: 上传的JSON文件对象。
-- `collection_id`: 要上传数据块的集合ID。
-**返回**: 无返回值，直接在界面上显示上传进度和结果。
-```python
+# Function to upload JSON chunks
 def upload_json_chunks(uploaded_json_file, collection_id):
+    """Upload chunks from a JSON file to the specified collection."""
     try:
         data = json.load(uploaded_json_file)
         
@@ -553,6 +344,7 @@ def upload_json_chunks(uploaded_json_file, collection_id):
             
             progress_bar = st.progress(0)
             for j, chunk in enumerate(chunks[start_index:end_index]):
+                # Ensure the chunk has the required structure
                 if 'content' in chunk:
                     content = chunk['content']
                     try:
@@ -573,34 +365,23 @@ def upload_json_chunks(uploaded_json_file, collection_id):
         st.success("所有数据导入完成。")
     except Exception as e:
         st.error(f"上传 JSON 文件时发生错误: {str(e)}")
-```
-  
-### 5.3 主页面结构
-主界面结构在main()函数中定义：
-```python
+        
 def main():
+    """主函数，设置Streamlit界面"""
     st.set_page_config(page_title="RAG管理员界面", layout="wide")
     st.title("RAG管理员界面")
+
+    # 初始化或更新 collections 列表
+    if 'collections' not in st.session_state:
+        st.session_state.collections = api_request("GET", f"{base_url}collections")
 
     # 侧边栏
     st.sidebar.title("操作面板")
     operation = st.sidebar.radio("选择操作", ["上传文件", "管理知识库"])
 
     if operation == "上传文件":
-        # 文件上传和处理逻辑
-        ...
-    elif operation == "管理知识库":
-        # 知识库管理逻辑
-        ...
-
-if __name__ == "__main__":
-    main()
-```
-
-### 5.4 文件上传和处理
-```python
-if operation == "上传文件":
         st.header("文件上传与QA对生成")
+        # uploaded_file = st.file_uploader("上传非结构化文件", type=["txt", "pdf", "docx"])
         uploaded_files = st.file_uploader("上传非结构化文件", type=["txt", "pdf", "docx"], accept_multiple_files=True)
         if uploaded_files:
             st.success("文件上传成功！")
@@ -631,11 +412,7 @@ if operation == "上传文件":
                         st.markdown("---") 
         else:
             st.warning("请上传文件。")
-```
-
-### 5.5 知识库管理
-```python
-elif operation == "管理知识库":
+    elif operation == "管理知识库":
         st.header("知识库管理")
         option = st.radio("选择操作", ("创建新Collection", "插入现有Collection", "下载Collection", "上传JSON文件"))
         
@@ -690,6 +467,7 @@ elif operation == "管理知识库":
             else:
                 st.warning("没有可用的 Collections，请创建新的 Collection。")
 
+
         elif option == "上传JSON文件":
             uploaded_json_file = st.file_uploader("选择一个 JSON 文件", type=["json"])
             
@@ -704,22 +482,6 @@ elif operation == "管理知识库":
                             upload_json_chunks(uploaded_json_file, selected_id)
             else:
                 st.warning("没有可用的 Collections，请创建新的 Collection。")
-```
- 
-## 六、其他事项
-### 6.1 注意事项
-- 确保在使用前正确配置了API密钥和基础URL。
-- 大文件处理和QA对生成可能需要一些时间，请耐心等待。
-- 插入大量QA对到Collection时可能需要较长时间，系统会显示进度。
 
-### 6.2 错误处理
-- 如果遇到API调用错误或文件处理错误，系统会在界面上显示相应的错误消息。
-- 对于插入失败的QA对，系统会显示警告信息。
-
-### 6.3 性能考虑
-- 应用使用了Streamlit的缓存机制来优化性能，特别是在QA对生成过程中。
-- 对于大型文件或大量QA对，处理时间可能会较长。
-
-### 6.4 安全性
-- 请确保妥善保管API密钥和其他敏感信息。
-- 上传的文件会被临时存储并在处理后删除。 
+if __name__ == "__main__":
+    main()
