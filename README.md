@@ -28,8 +28,10 @@
 - PyMuPDF==1.22.5
 - pandas==2.1.1
 - langchain_community==0.1.0
+- python==3.11.5
 
 ## 4.2 安装步骤
+- 安装配置[TaskingAI](https://github.com/TaskingAI/TaskingAI)系统
 - 克隆此仓库：
 ```
 git clone https://github.com/wangxb96/RAG-QA-Generator.git
