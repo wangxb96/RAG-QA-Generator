@@ -32,6 +32,12 @@
 
 ## 4.2 安装步骤
 - 安装配置[TaskingAI](https://github.com/TaskingAI/TaskingAI)系统
+  - git clone https://github.com/taskingai/taskingai.git
+  - cd taskingai
+  - cd docker
+  - cp .env.example .env
+  - docker-compose -p taskingai --env-file .env up -d
+  - Once the service is up, access the TaskingAI console through your browser with the URL http://localhost:8080. The default username and password are admin and TaskingAI321.
 - 克隆此仓库：
 ```
 git clone https://github.com/wangxb96/RAG-QA-Generator.git
@@ -43,10 +49,12 @@ pip install -r requirements.txt
 ``` 
 - 配置API密钥和基础URL：
 ```
+# 配置TaskingAI相关信息 
 base_url = 'http://your-api-url/v1/'
 api_key = 'your-api-key'
 headers = {"Authorization": f"Bearer {api_key}"}
 
+# 配置大模型相关信息
 client = OpenAI(
     api_key="your-openai-api-key",
     base_url="http://your-openai-api-url/v1",
